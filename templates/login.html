@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ app_name }} - 登录</title>
+    <link rel="stylesheet" href="/static/style.css">
+  </head>
+  <body class="login-body">
+    <main class="login-shell">
+      <section class="login-side-card">
+        <div class="brand-mark big">CS</div>
+        <div class="section-kicker">WEB CONTROL PANEL</div>
+        <h1>{{ app_name }}</h1>
+        <p>管理共享 A 订阅、多条 B 落地和可对外使用的 C 输出链接。</p>
+        <ul class="login-points">
+          <li>Ai订阅管理：单独检查共享订阅 A 的节点状态。</li>
+          <li>B落地列表：批量录入、测试和维护多条 B 落地。</li>
+          <li>C输出列表：统一导出完整 Socks5 链接并做外网诊断。</li>
+        </ul>
+      </section>
+
+      <section class="login-panel">
+        <div class="section-kicker dark">登录</div>
+        <h2>进入控制台</h2>
+        <p>输入你的 WebUI 管理账号后继续。</p>
+
+        {% if error %}
+        <div class="inline-alert">{{ error }}</div>
+        {% endif %}
+
+        <form method="post" action="/login" class="login-form">
+          <label class="field">
+            <span>用户名</span>
+            <input type="text" name="username" autocomplete="username" required>
+          </label>
+
+          <label class="field">
+            <span>密码</span>
+            <input type="password" name="password" autocomplete="current-password" required>
+          </label>
+
+          <button type="submit" class="primary-login-button">登录</button>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>
