@@ -1,0 +1,17 @@
+[Unit]
+Description=Clash Socks Server UI
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/clash-socks-server-ui
+EnvironmentFile=/opt/clash-socks-server-ui/.env
+ExecStart=/opt/clash-socks-server-ui/.venv/bin/uvicorn app.main:app --host ${CSG_HOST} --port ${CSG_PORT}
+Restart=always
+RestartSec=3
+User=clashui
+Group=clashui
+
+[Install]
+WantedBy=multi-user.target
