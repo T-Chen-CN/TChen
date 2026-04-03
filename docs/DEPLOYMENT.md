@@ -16,8 +16,10 @@
 推荐直接使用 bootstrap：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/T-Chen-CN/Clash-Socks-Server-UI/main/bootstrap_ubuntu.sh | sudo bash
+curl -fL# https://raw.githubusercontent.com/T-Chen-CN/Clash-Socks-Server-UI/main/bootstrap_ubuntu.sh -o /tmp/clash-socks-bootstrap.sh && sudo bash /tmp/clash-socks-bootstrap.sh; rm -f /tmp/clash-socks-bootstrap.sh
 ```
+
+这条命令会先显示脚本下载进度，再进入安装流程。相比完全静默的 `curl -fsSL ... | sudo bash`，它更容易判断当前是“正在下载”还是“已经开始安装”。
 
 这会自动执行：
 
@@ -87,12 +89,13 @@ curl -fsSL https://raw.githubusercontent.com/T-Chen-CN/Clash-Socks-Server-UI/mai
 可以在执行 bootstrap 时覆盖默认值：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/T-Chen-CN/Clash-Socks-Server-UI/main/bootstrap_ubuntu.sh | sudo env \
+curl -fL# https://raw.githubusercontent.com/T-Chen-CN/Clash-Socks-Server-UI/main/bootstrap_ubuntu.sh -o /tmp/clash-socks-bootstrap.sh && sudo env \
   CSG_PUBLIC_HOST=1.2.3.4 \
   CSG_PUBLIC_PORT=18080 \
   CSG_ADMIN_USERNAME=admin \
   CSG_DEFAULT_ALLOWED_C_PORTS=10808-10999 \
-  bash
+  bash /tmp/clash-socks-bootstrap.sh; \
+rm -f /tmp/clash-socks-bootstrap.sh
 ```
 
 常见变量说明：
