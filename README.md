@@ -84,8 +84,10 @@
 适用于全新的 Ubuntu 22.04 / 24.04 服务器：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/T-Chen-CN/Clash-Socks-Server-UI/main/bootstrap_ubuntu.sh | sudo bash
+curl -fL# https://raw.githubusercontent.com/T-Chen-CN/Clash-Socks-Server-UI/main/bootstrap_ubuntu.sh -o /tmp/clash-socks-bootstrap.sh && sudo bash /tmp/clash-socks-bootstrap.sh; rm -f /tmp/clash-socks-bootstrap.sh
 ```
+
+上面这条命令会先显示下载进度，再执行安装脚本。相比 `curl -fsSL ... | sudo bash` 这种完全静默下载的写法，更不容易让人误以为“命令卡住了”。
 
 部署脚本会自动完成：
 
@@ -149,7 +151,7 @@ curl -fsSL https://raw.githubusercontent.com/T-Chen-CN/Clash-Socks-Server-UI/mai
 如果你希望在执行一条命令时顺手覆盖一些默认值，可以这样写：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/T-Chen-CN/Clash-Socks-Server-UI/main/bootstrap_ubuntu.sh | sudo env CSG_PUBLIC_HOST=1.2.3.4 CSG_PUBLIC_PORT=18080 bash
+curl -fL# https://raw.githubusercontent.com/T-Chen-CN/Clash-Socks-Server-UI/main/bootstrap_ubuntu.sh -o /tmp/clash-socks-bootstrap.sh && sudo env CSG_PUBLIC_HOST=1.2.3.4 CSG_PUBLIC_PORT=18080 bash /tmp/clash-socks-bootstrap.sh; rm -f /tmp/clash-socks-bootstrap.sh
 ```
 
 常用变量包括：
