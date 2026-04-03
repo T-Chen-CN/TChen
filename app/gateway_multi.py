@@ -21,6 +21,8 @@ from typing import Callable
 
 import yaml
 
+from .config import CONFIG
+
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT_DIR / "data"
@@ -68,6 +70,20 @@ def detect_primary_ipv4() -> str:
         return socket.gethostbyname(socket.gethostname())
     except OSError:
         return "127.0.0.1"
+
+
+def default_export_host() -> str:
+    configured = CONFIG.default_export_host.strip()
+    if configured:
+        return configured
+    return detect_primary_ipv4()
+
+
+def default_allowed_c_ports() -> str:
+    configured = CONFIG.default_allowed_c_ports.strip()
+    if configured:
+        return configured
+    return DEFAULT_C_PORT_POOL
 
 
 def yaml_quote(value: str) -> str:
@@ -263,8 +279,8 @@ class AppSettings:
         return cls(
             version=2,
             subscription_url="",
-            export_host=detect_primary_ipv4(),
-            allowed_c_ports=DEFAULT_C_PORT_POOL,
+            export_host=default_export_host(),
+            allowed_c_ports=default_allowed_c_ports(),
             active_route_id=route.route_id,
             inspector_controller_port=19180,
             inspector_secret=random_secret(24),
@@ -289,7 +305,7 @@ class AppSettings:
                 version=int(raw.get("version", 2) or 2),
                 subscription_url=str(raw.get("subscription_url") or ""),
                 export_host=str(raw.get("export_host") or ""),
-                allowed_c_ports=str(raw.get("allowed_c_ports") or DEFAULT_C_PORT_POOL),
+                allowed_c_ports=str(raw.get("allowed_c_ports") or default_allowed_c_ports()),
                 active_route_id=str(raw.get("active_route_id") or ""),
                 inspector_controller_port=int(raw.get("inspector_controller_port") or 19180),
                 inspector_secret=str(raw.get("inspector_secret") or random_secret(24)),
@@ -316,8 +332,8 @@ class AppSettings:
         settings = cls(
             version=2,
             subscription_url=str(raw.get("subscription_url") or ""),
-            export_host=str(raw.get("export_host") or detect_primary_ipv4()),
-            allowed_c_ports=DEFAULT_C_PORT_POOL,
+            export_host=str(raw.get("export_host") or default_export_host()),
+            allowed_c_ports=default_allowed_c_ports(),
             active_route_id="default",
             inspector_controller_port=19180,
             inspector_secret=random_secret(24),
@@ -393,8 +409,8 @@ def validate_app_settings(settings: AppSettings, save_back: bool = False) -> App
     normalized = AppSettings(
         version=2,
         subscription_url=(settings.subscription_url or "").strip(),
-        export_host=(settings.export_host or detect_primary_ipv4()).strip() or detect_primary_ipv4(),
-        allowed_c_ports=(settings.allowed_c_ports or DEFAULT_C_PORT_POOL).strip() or DEFAULT_C_PORT_POOL,
+        export_host=(settings.export_host or default_export_host()).strip() or default_export_host(),
+        allowed_c_ports=(settings.allowed_c_ports or default_allowed_c_ports()).strip() or default_allowed_c_ports(),
         active_route_id=(settings.active_route_id or "").strip(),
         inspector_controller_port=int(settings.inspector_controller_port or 19180),
         inspector_secret=(settings.inspector_secret or "").strip() or random_secret(24),
@@ -436,7 +452,7 @@ def save_settings(settings: AppSettings) -> AppSettings:
 
 
 def build_import_link(app_settings: AppSettings, route: RouteSettings) -> str:
-    safe_host = app_settings.export_host.strip() or detect_primary_ipv4()
+    safe_host = app_settings.export_host.strip() or default_export_host()
     if ":" in safe_host and not safe_host.startswith("["):
         safe_host = f"[{safe_host}]"
     username = urllib.parse.quote(route.gateway_username, safe="")

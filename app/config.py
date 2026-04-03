@@ -32,6 +32,8 @@ class AppConfig:
     enable_docs: bool = env_bool("CSG_ENABLE_DOCS", False)
     test_url: str = os.getenv("CSG_TEST_URL", "https://www.gstatic.com/generate_204")
     test_timeout_ms: int = int(os.getenv("CSG_TEST_TIMEOUT_MS", "5000"))
+    default_export_host: str = os.getenv("CSG_DEFAULT_EXPORT_HOST", "")
+    default_allowed_c_ports: str = os.getenv("CSG_DEFAULT_ALLOWED_C_PORTS", "10808-10999")
 
 
 CONFIG = AppConfig()

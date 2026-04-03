@@ -1,201 +1,137 @@
-# Clash Socks Server UI
+﻿# Clash Socks Server UI
 
-一个面向 Ubuntu / Linux 服务器的远程 WebUI，用来把：
+把 `Clash 订阅 A` 和 `上游 Socks5 B` 组合成对外提供的 `Socks5 C`，并通过 WebUI 管理整个流程。
 
-- `Clash 订阅 A`
-- `住宅 Socks5 落地 B`
+链路示意：
 
-组合成对外可直接使用的 `Socks5 C`。
+`客户端 -> 服务器 C -> Clash 订阅 A -> 上游 Socks5 B -> 目标网站`
 
-最终链路如下：
+## 一条命令部署
 
-```text
-外部设备 -> 服务器上的 Socks5 C -> 订阅 A 中转 -> 落地 B -> 目标网站
-```
-
-项目已经内置完整的 Web 管理界面，可远程完成订阅录入、路由管理、落地录入、节点切换、批量测速、出口 IP 检测和 C 链接导出。
-
-## 核心能力
-
-- 共享订阅 A 管理
-  - 录入 Clash 订阅
-  - 独立加载和缓存 A 节点
-  - 单点测速、批量测速、节点切换
-- 多路由 B / C 管理
-  - 一个 A 对应多条 B
-  - 多个 C 可同时运行
-  - 路由级独立监听端口、账号、密码、控制器端口
-- 出口连通性与属性检测
-  - 测试 B 落地直连可用性
-  - 测试最终 C 对外可用性
-  - 查询出口 IP、位置、网络类型、运营商等摘要信息
-- 服务器侧自动化
-  - 自动下载 / 更新 `mihomo`
-  - 自动生成配置并启动进程
-  - 提供 `systemd` 服务文件与 `nginx` 反代示例
-- WebUI 运维能力
-  - 登录鉴权
-  - 仪表盘总览
-  - B 落地列表
-  - C 输出列表
-  - 路由日志查看
-
-## 适用场景
-
-- 需要把多个住宅 Socks5 落地统一发布为对外可用的 Socks5 链接
-- 需要在服务器上集中管理 A 节点和多条 B / C 路由
-- 需要给外部设备直接分发 `socks5://user:pass@host:port` 链接
-- 需要快速判断哪些路由已经可公网使用
-
-## 技术栈
-
-- Backend: `FastAPI`
-- Frontend: `Jinja2 + Vanilla JavaScript + CSS`
-- Proxy Core: `mihomo`
-- Process / Service: `systemd`
-- Optional Reverse Proxy: `nginx`
-
-## 页面结构
-
-- `仪表盘`
-  - 查看共享订阅 A、B 摘要、C 摘要和整体可用性
-- `Ai订阅管理`
-  - 保存订阅、加载 A 节点、缓存节点、测速、切换节点
-- `B落地列表`
-  - 维护每条路由的 B 信息并测试直连
-- `C输出列表`
-  - 设置 C 输出格式、批量运行、批量测试、复制完整链接
-- `设置`
-  - 统一维护导出地址、端口池、运行参数等全局配置
-
-## 目录结构
-
-```text
-ClashSocksServerUI/
-├─ app/
-│  ├─ auth.py
-│  ├─ config.py
-│  ├─ gateway.py
-│  ├─ gateway_multi.py
-│  └─ main.py
-├─ nginx/
-│  └─ clash-socks-webui.conf.example
-├─ static/
-│  ├─ app.js
-│  └─ style.css
-├─ systemd/
-│  └─ clash-socks-webui.service
-├─ templates/
-│  ├─ index.html
-│  └─ login.html
-├─ .env.example
-├─ install_ubuntu.sh
-└─ requirements.txt
-```
-
-## 快速开始
-
-### 1. 本地开发
+适用于全新的 Ubuntu 22.04 / 24.04 服务器。
 
 ```bash
-python -m venv .venv
-. .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-uvicorn app.main:app --reload --host 0.0.0.0 --port 18080
+curl -fsSL https://raw.githubusercontent.com/T-Chen-CN/Clash-Socks-Server-UI/main/bootstrap_ubuntu.sh | sudo bash
 ```
 
-打开：
+这条命令会自动完成：
 
-```text
-http://127.0.0.1:18080/login
+- 安装 Python、venv、nginx 等依赖
+- 从 GitHub 下载项目并部署到 `/opt/clash-socks-server-ui`
+- 创建运行用户 `clashui`
+- 生成随机的 WebUI 管理密码和 session secret
+- 创建初始 `settings.json`
+- 尝试预下载 `mihomo`
+- 让 WebUI 运行在 `nginx` 后面
+- 默认关闭 `/docs` 和 `/openapi.json`
+
+部署完成后，脚本会直接打印：
+
+- WebUI 访问地址
+- 初始管理员账号
+- 初始管理员密码
+- 默认导出主机地址
+- 默认可用的 C 端口池
+
+## 部署后你只需要做什么
+
+登录 WebUI 后，只需要做这几件事：
+
+1. 录入 `Clash 订阅 A`
+2. 录入 `上游 Socks5 B`
+3. 刷新订阅
+4. 启动默认路由
+
+也就是说，不需要再手动改 `.env`、手动起服务、手动配反向代理。
+
+## 默认访问方式
+
+默认会同时监听：
+
+- `http://服务器IP:18080/`
+- `http://服务器IP/`
+
+应用本体默认只监听本机：
+
+- `127.0.0.1:18081`
+
+也就是公网看到的是 `nginx`，不是直接暴露的 `uvicorn`。
+
+## 可选环境变量
+
+如果你想在执行一条命令时顺手改一些默认值，可以这样写：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/T-Chen-CN/Clash-Socks-Server-UI/main/bootstrap_ubuntu.sh | sudo env CSG_PUBLIC_HOST=1.2.3.4 CSG_PUBLIC_PORT=18080 bash
 ```
 
-### 2. Ubuntu 服务器部署
+常用变量：
 
-将项目上传到服务器后执行：
+- `CSG_PUBLIC_HOST`
+  用来覆盖自动探测到的公网 IP，决定默认导出的 `socks5://` 地址主机名。
+
+- `CSG_PUBLIC_PORT`
+  WebUI 对外端口，默认是 `18080`。
+
+- `CSG_ENABLE_PORT_80`
+  是否同时启用 `80` 端口，默认是 `1`。
+
+- `CSG_ADMIN_USERNAME`
+  初始管理员用户名，默认是 `admin`。
+
+- `CSG_ADMIN_PASSWORD`
+  初始管理员密码；如果不传，会自动生成随机值。
+
+- `CSG_DEFAULT_ALLOWED_C_PORTS`
+  默认允许分配的 C 端口池，默认是 `10808-10999`。
+
+- `CSG_BASE_URL_OVERRIDE`
+  用来覆盖默认的 `CSG_BASE_URL`。
+
+- `REPO_REF`
+  Bootstrap 使用的 Git 分支或 tag，默认是 `main`。
+
+## 手动源码安装
+
+如果你已经把仓库源码放到了服务器上，也可以在项目目录里执行：
 
 ```bash
 sudo bash install_ubuntu.sh
 ```
 
-然后完成：
+它会执行和 bootstrap 相同的核心安装流程。
 
-1. 编辑 `/opt/clash-socks-server-ui/.env`
-2. 启动服务
+## 云防火墙和安全组
 
-```bash
-sudo systemctl start clash-socks-webui
-sudo systemctl status clash-socks-webui
-```
+安装脚本能处理服务器内的服务和 `nginx`，但云平台控制台里的安全组仍然需要你自己确认。
 
-### 3. 服务器放行
+至少建议放行：
 
-至少需要放通：
+- `18080/tcp`
+- `80/tcp`
+- 你实际要给客户端使用的 `Socks5 C` 端口，例如 `10808/tcp`
 
-- WebUI 端口，例如 `18080/TCP`
-- 对外发布的 Socks5 端口，例如 `10808-10999/TCP`
+## HTTPS 说明
 
-如果需要域名 / HTTPS，可参考：
+这个项目默认按“IP 直连 + nginx 反代”部署。
 
-- `nginx/clash-socks-webui.conf.example`
+如果你要浏览器原生信任的 HTTPS，需要再绑定域名并为 `nginx` 或 `caddy` 配证书。没有域名时，可以正常使用 HTTP，但不会有受信任证书。
 
-## 环境变量
+## 项目结构
 
-`.env.example` 中包含基础运行配置：
-
-| 变量 | 说明 |
-| --- | --- |
-| `CSG_HOST` | WebUI 监听地址 |
-| `CSG_PORT` | WebUI 监听端口 |
-| `CSG_APP_NAME` | 页面显示名称 |
-| `CSG_ADMIN_USERNAME` | 管理员用户名 |
-| `CSG_ADMIN_PASSWORD` | 管理员密码 |
-| `CSG_SESSION_SECRET` | Session 密钥 |
-| `CSG_BASE_URL` | 可选，外部访问基地址 |
-| `CSG_TEST_URL` | 默认测试 URL |
-| `CSG_TEST_TIMEOUT_MS` | 默认测试超时 |
-
-## 运行逻辑
-
-### A 订阅
-
-- 订阅保存后，A 节点可独立载入并缓存
-- 未手动刷新前，页面优先展示缓存节点
-- 只有点击“刷新订阅 A”时才重新拉取远端订阅
-
-### B 落地
-
-- 每条路由单独保存一条 B
-- 支持常见带认证的 Socks5 录入格式
-- 可测试 B 直连可用性和出口 IP 摘要
-
-### C 导出
-
-- 每条路由独立生成一个公网可用的 Socks5 C
-- 支持多种 C 输出格式切换
-- 可批量运行、批量测试、批量复制
+- `app/main.py`：FastAPI 入口
+- `app/gateway_multi.py`：`mihomo` 管理和链路逻辑
+- `templates/`：WebUI 页面模板
+- `static/`：前端静态资源
+- `systemd/`：服务单元文件
+- `nginx/`：反向代理示例配置
+- `bootstrap_ubuntu.sh`：GitHub 一条命令部署入口
+- `install_ubuntu.sh`：服务器上的实际安装器
 
 ## 安全建议
 
-- 首次部署后立刻修改 WebUI 管理员密码
-- 不要在公网环境继续使用默认示例账号密码
-- 对外开放的 Socks5 端口尽量使用高位端口池
-- 优先给 WebUI 添加 HTTPS
-- 尽量通过云防火墙限制来源 IP
-- 不要把 `.env`、`data/`、`runtime/`、`logs/` 提交到仓库
-
-## 已忽略的运行文件
-
-仓库默认不会提交这些内容：
-
-- `.env`
-- `.venv/`
-- `data/`
-- `runtime/`
-- `logs/`
-- `__pycache__/`
-
-## 许可证
-
-本项目默认以 [MIT License](./LICENSE) 发布。
+- 部署完成后及时保存脚本打印出的随机管理员密码
+- 如果你手动指定了管理员密码，尽量不要使用弱密码
+- 对公网开放的 `Socks5 C` 端口始终使用账号密码
+- 尽量只开放你实际会使用的端口
+- 如果要长期对外提供 WebUI，优先补上域名和 HTTPS
