@@ -11,6 +11,10 @@ BACKEND_HOST="127.0.0.1"
 BACKEND_PORT="${CSG_INTERNAL_PORT:-18081}"
 DEFAULT_ALLOWED_C_PORTS="${CSG_DEFAULT_ALLOWED_C_PORTS:-10808-10999}"
 ADMIN_USERNAME="${CSG_ADMIN_USERNAME:-admin}"
+PIP_TIMEOUT="${CSG_PIP_TIMEOUT:-120}"
+PIP_RETRIES="${CSG_PIP_RETRIES:-5}"
+PIP_INDEX_URL="${CSG_PIP_INDEX_URL:-}"
+PIP_EXTRA_INDEX_URL="${CSG_PIP_EXTRA_INDEX_URL:-}"
 MIHOMO_NOTICE=""
 DETECTION_WARNING=""
 CURRENT_STAGE="Initialization / 初始化"
@@ -78,6 +82,46 @@ PY
 
 run_as_app_user() {
   runuser -u "$APP_USER" -- "$@"
+}
+
+retry_command() {
+  local attempts="$1"
+  local sleep_seconds="$2"
+  shift 2
+
+  local attempt=1
+  while true; do
+    if "$@"; then
+      return 0
+    fi
+
+    local exit_code=$?
+    if [[ "$attempt" -ge "$attempts" ]]; then
+      return "$exit_code"
+    fi
+
+    log_warn "Command failed (attempt ${attempt}/${attempts}); retrying in ${sleep_seconds}s. / 命令执行失败（第 ${attempt}/${attempts} 次），${sleep_seconds} 秒后重试。"
+    attempt=$((attempt + 1))
+    sleep "$sleep_seconds"
+  done
+}
+
+run_pip() {
+  local -a env_args
+  env_args=(
+    "PIP_DISABLE_PIP_VERSION_CHECK=1"
+    "PIP_DEFAULT_TIMEOUT=${PIP_TIMEOUT}"
+    "PIP_PROGRESS_BAR=off"
+  )
+
+  if [[ -n "$PIP_INDEX_URL" ]]; then
+    env_args+=("PIP_INDEX_URL=${PIP_INDEX_URL}")
+  fi
+  if [[ -n "$PIP_EXTRA_INDEX_URL" ]]; then
+    env_args+=("PIP_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}")
+  fi
+
+  run_as_app_user env "${env_args[@]}" "$APP_DIR/.venv/bin/pip" "$@"
 }
 
 get_env_value() {
@@ -341,8 +385,16 @@ log_step_start "Prepare Python environment / 准备 Python 运行环境"
 if [[ ! -d "$APP_DIR/.venv" ]]; then
   run_as_app_user python3 -m venv "$APP_DIR/.venv"
 fi
-run_as_app_user "$APP_DIR/.venv/bin/pip" install --upgrade pip
-run_as_app_user "$APP_DIR/.venv/bin/pip" install -r "$APP_DIR/requirements.txt"
+log_info "Installing Python dependencies. / 正在安装 Python 依赖。"
+log_info "pip timeout=${PIP_TIMEOUT}s, retries=${PIP_RETRIES}. / pip 超时=${PIP_TIMEOUT} 秒，重试次数=${PIP_RETRIES}。"
+if [[ -n "$PIP_INDEX_URL" ]]; then
+  log_info "Using custom pip index: ${PIP_INDEX_URL} / 正在使用自定义 pip 源：${PIP_INDEX_URL}"
+fi
+if ! retry_command 3 5 run_pip install --retries "$PIP_RETRIES" --timeout "$PIP_TIMEOUT" -r "$APP_DIR/requirements.txt"; then
+  log_warn "Python dependency installation failed after retries. / Python 依赖安装在多次重试后仍然失败。"
+  log_warn "If your server reaches PyPI slowly, rerun with CSG_PIP_INDEX_URL set to a reachable mirror. / 如果服务器访问 PyPI 较慢，请设置 CSG_PIP_INDEX_URL 为可访问的镜像后重试。"
+  false
+fi
 log_ok "Python environment is ready. / Python 运行环境已就绪。"
 
 log_step_start "Initialize application settings / 初始化应用配置"
