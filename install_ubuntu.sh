@@ -12,6 +12,7 @@ BACKEND_PORT="${CSG_INTERNAL_PORT:-18081}"
 DEFAULT_ALLOWED_C_PORTS="${CSG_DEFAULT_ALLOWED_C_PORTS:-10808-10999}"
 ADMIN_USERNAME="${CSG_ADMIN_USERNAME:-admin}"
 MIHOMO_NOTICE=""
+DETECTION_WARNING=""
 
 if [[ $EUID -ne 0 ]]; then
   echo "Please run this installer with sudo." >&2
@@ -79,6 +80,46 @@ set_env_value() {
 looks_like_ipv4() {
   local value="$1"
   [[ "$value" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]
+}
+
+is_private_or_loopback_host() {
+  local value="$1"
+  python3 - "$value" <<'PY'
+import ipaddress
+import sys
+
+value = sys.argv[1].strip()
+if value.startswith("[") and value.endswith("]"):
+    value = value[1:-1]
+
+try:
+    ip = ipaddress.ip_address(value)
+except ValueError:
+    raise SystemExit(1)
+
+raise SystemExit(0 if (ip.is_private or ip.is_loopback or ip.is_link_local) else 1)
+PY
+}
+
+format_http_host() {
+  local host="$1"
+  if [[ "$host" == *:* && "$host" != \[*\] ]]; then
+    printf '[%s]\n' "$host"
+    return
+  fi
+  printf '%s\n' "$host"
+}
+
+build_http_url() {
+  local host="$1"
+  local port="$2"
+  local formatted_host
+  formatted_host="$(format_http_host "$host")"
+  if [[ "$port" == "80" ]]; then
+    printf 'http://%s/\n' "$formatted_host"
+    return
+  fi
+  printf 'http://%s:%s/\n' "$formatted_host" "$port"
 }
 
 detect_public_host() {
@@ -257,8 +298,13 @@ run_as_app_user "$APP_DIR/.venv/bin/pip" install --upgrade pip
 run_as_app_user "$APP_DIR/.venv/bin/pip" install -r "$APP_DIR/requirements.txt"
 
 PUBLIC_HOST="$(detect_public_host)"
-BASE_URL="${CSG_BASE_URL_OVERRIDE:-http://${PUBLIC_HOST}:${PUBLIC_HTTP_PORT}}"
+PUBLIC_HTTP_URL="$(build_http_url "$PUBLIC_HOST" "$PUBLIC_HTTP_PORT")"
+BASE_URL="${CSG_BASE_URL_OVERRIDE:-${PUBLIC_HTTP_URL%/}}"
 ENV_PATH="$APP_DIR/.env"
+
+if is_private_or_loopback_host "$PUBLIC_HOST"; then
+  DETECTION_WARNING="Detected export host ${PUBLIC_HOST}, which looks like a private or loopback address. If this server has a different public IP, pass CSG_PUBLIC_HOST during installation or update the export host in the WebUI after deployment."
+fi
 
 if [[ ! -f "$ENV_PATH" ]]; then
   write_default_env "$ENV_PATH" "$PUBLIC_HOST" "$BASE_URL"
@@ -297,12 +343,12 @@ cat <<EOF
 Deployment completed.
 
 WebUI URLs:
-- http://${PUBLIC_HOST}:${PUBLIC_HTTP_PORT}/
+- ${PUBLIC_HTTP_URL}
 EOF
 
 if [[ "$ENABLE_PORT_80" == "1" && "$PUBLIC_HTTP_PORT" != "80" ]]; then
   cat <<EOF
-- http://${PUBLIC_HOST}/
+- $(build_http_url "$PUBLIC_HOST" "80")
 EOF
 fi
 
@@ -345,5 +391,13 @@ if [[ -n "$MIHOMO_NOTICE" ]]; then
 
 Note:
 - ${MIHOMO_NOTICE}
+EOF
+fi
+
+if [[ -n "$DETECTION_WARNING" ]]; then
+  cat <<EOF
+
+Warning:
+- ${DETECTION_WARNING}
 EOF
 fi
