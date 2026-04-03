@@ -48,6 +48,8 @@ curl -fsSL https://raw.githubusercontent.com/T-Chen-CN/Clash-Socks-Server-UI/mai
 - 默认管理员账号为 `admin`
 - 默认管理员密码自动随机生成
 - 默认导出地址会尽量使用探测到的公网 IP
+- 安装过程会持续打印当前阶段状态，避免误判为卡死
+- 安装结束时会双语提醒需要开放的 WebUI 和 C 端口
 
 ## 首次部署后应该立刻确认的事情
 
