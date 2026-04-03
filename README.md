@@ -84,10 +84,10 @@
 适用于全新的 Ubuntu 22.04 / 24.04 服务器：
 
 ```bash
-curl -fL# https://raw.githubusercontent.com/T-Chen-CN/Clash-Socks-Server-UI/main/bootstrap_ubuntu.sh -o /tmp/clash-socks-bootstrap.sh && sudo bash /tmp/clash-socks-bootstrap.sh; rm -f /tmp/clash-socks-bootstrap.sh
+echo "[1/2] Downloading bootstrap script from GitHub..." && curl -fL --retry 3 --connect-timeout 15 --max-time 300 https://raw.githubusercontent.com/T-Chen-CN/Clash-Socks-Server-UI/main/bootstrap_ubuntu.sh -o /tmp/clash-socks-bootstrap.sh && echo "[2/2] Starting installer..." && sudo bash /tmp/clash-socks-bootstrap.sh; rm -f /tmp/clash-socks-bootstrap.sh
 ```
 
-上面这条命令会先显示下载进度，再执行安装脚本。相比 `curl -fsSL ... | sudo bash` 这种完全静默下载的写法，更不容易让人误以为“命令卡住了”。
+上面这条命令会先明确打印“正在下载”和“开始安装”，下载阶段也会显示更正常的 `curl` 进度信息。相比 `curl -fsSL ... | sudo bash` 这种完全静默下载的写法，更不容易让人误以为“命令卡住了”。
 
 部署脚本会自动完成：
 
@@ -151,7 +151,7 @@ curl -fL# https://raw.githubusercontent.com/T-Chen-CN/Clash-Socks-Server-UI/main
 如果你希望在执行一条命令时顺手覆盖一些默认值，可以这样写：
 
 ```bash
-curl -fL# https://raw.githubusercontent.com/T-Chen-CN/Clash-Socks-Server-UI/main/bootstrap_ubuntu.sh -o /tmp/clash-socks-bootstrap.sh && sudo env CSG_PUBLIC_HOST=1.2.3.4 CSG_PUBLIC_PORT=18080 bash /tmp/clash-socks-bootstrap.sh; rm -f /tmp/clash-socks-bootstrap.sh
+echo "[1/2] Downloading bootstrap script from GitHub..." && curl -fL --retry 3 --connect-timeout 15 --max-time 300 https://raw.githubusercontent.com/T-Chen-CN/Clash-Socks-Server-UI/main/bootstrap_ubuntu.sh -o /tmp/clash-socks-bootstrap.sh && echo "[2/2] Starting installer..." && sudo env CSG_PUBLIC_HOST=1.2.3.4 CSG_PUBLIC_PORT=18080 bash /tmp/clash-socks-bootstrap.sh; rm -f /tmp/clash-socks-bootstrap.sh
 ```
 
 常用变量包括：
@@ -176,6 +176,15 @@ curl -fL# https://raw.githubusercontent.com/T-Chen-CN/Clash-Socks-Server-UI/main
 
 - `CSG_BASE_URL_OVERRIDE`
   用来覆盖默认的 `CSG_BASE_URL`。
+
+- `CSG_PIP_INDEX_URL`
+  可选，自定义 pip 源地址。服务器访问 PyPI 较慢时，可以在这里指定你自己的镜像源。
+
+- `CSG_PIP_TIMEOUT`
+  pip 单次网络超时时间，默认 `120` 秒。
+
+- `CSG_PIP_RETRIES`
+  pip 下载重试次数，默认 `5`。
 
 - `REPO_REF`
   Bootstrap 下载的分支或 tag，默认 `main`。

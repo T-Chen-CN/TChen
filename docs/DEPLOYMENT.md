@@ -16,10 +16,10 @@
 推荐直接使用 bootstrap：
 
 ```bash
-curl -fL# https://raw.githubusercontent.com/T-Chen-CN/Clash-Socks-Server-UI/main/bootstrap_ubuntu.sh -o /tmp/clash-socks-bootstrap.sh && sudo bash /tmp/clash-socks-bootstrap.sh; rm -f /tmp/clash-socks-bootstrap.sh
+echo "[1/2] Downloading bootstrap script from GitHub..." && curl -fL --retry 3 --connect-timeout 15 --max-time 300 https://raw.githubusercontent.com/T-Chen-CN/Clash-Socks-Server-UI/main/bootstrap_ubuntu.sh -o /tmp/clash-socks-bootstrap.sh && echo "[2/2] Starting installer..." && sudo bash /tmp/clash-socks-bootstrap.sh; rm -f /tmp/clash-socks-bootstrap.sh
 ```
 
-这条命令会先显示脚本下载进度，再进入安装流程。相比完全静默的 `curl -fsSL ... | sudo bash`，它更容易判断当前是“正在下载”还是“已经开始安装”。
+这条命令会先明确打印“正在下载”和“开始安装”，下载阶段也会显示更正常的 `curl` 进度信息。相比完全静默的 `curl -fsSL ... | sudo bash`，它更容易判断当前是“正在下载”还是“已经开始安装”。
 
 这会自动执行：
 
@@ -89,7 +89,7 @@ curl -fL# https://raw.githubusercontent.com/T-Chen-CN/Clash-Socks-Server-UI/main
 可以在执行 bootstrap 时覆盖默认值：
 
 ```bash
-curl -fL# https://raw.githubusercontent.com/T-Chen-CN/Clash-Socks-Server-UI/main/bootstrap_ubuntu.sh -o /tmp/clash-socks-bootstrap.sh && sudo env \
+echo "[1/2] Downloading bootstrap script from GitHub..." && curl -fL --retry 3 --connect-timeout 15 --max-time 300 https://raw.githubusercontent.com/T-Chen-CN/Clash-Socks-Server-UI/main/bootstrap_ubuntu.sh -o /tmp/clash-socks-bootstrap.sh && echo "[2/2] Starting installer..." && sudo env \
   CSG_PUBLIC_HOST=1.2.3.4 \
   CSG_PUBLIC_PORT=18080 \
   CSG_ADMIN_USERNAME=admin \
@@ -120,6 +120,15 @@ rm -f /tmp/clash-socks-bootstrap.sh
 
 - `CSG_BASE_URL_OVERRIDE`
   覆盖默认 `CSG_BASE_URL`。
+
+- `CSG_PIP_INDEX_URL`
+  可选，自定义 pip 源地址。服务器访问 PyPI 较慢时，可以在这里指定你自己的镜像源。
+
+- `CSG_PIP_TIMEOUT`
+  pip 单次网络超时时间，默认 `120` 秒。
+
+- `CSG_PIP_RETRIES`
+  pip 下载重试次数，默认 `5`。
 
 - `REPO_REF`
   指定 bootstrap 下载哪个分支或 tag。
