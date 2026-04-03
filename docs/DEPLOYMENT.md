@@ -25,6 +25,7 @@ echo "[1/2] Downloading bootstrap script from GitHub..." && curl -fL --retry 3 -
 
 - 下载仓库源码
 - 安装依赖
+- 在安装 Python 依赖前测速多个 pip 源并自动选择更快的一个
 - 创建运行用户
 - 初始化 `.env`
 - 启动 `systemd`
@@ -122,7 +123,10 @@ rm -f /tmp/clash-socks-bootstrap.sh
   覆盖默认 `CSG_BASE_URL`。
 
 - `CSG_PIP_INDEX_URL`
-  可选，自定义 pip 源地址。服务器访问 PyPI 较慢时，可以在这里指定你自己的镜像源。
+  可选，强制指定 pip 源地址。设置后将跳过自动测速选源。
+
+- `CSG_PIP_CANDIDATE_MIRRORS`
+  可选，逗号分隔的 pip 源候选列表。安装器会在依赖安装前依次测速，并自动选择最快可用的源。
 
 - `CSG_PIP_TIMEOUT`
   pip 单次网络超时时间，默认 `120` 秒。

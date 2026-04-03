@@ -15,6 +15,7 @@ PIP_TIMEOUT="${CSG_PIP_TIMEOUT:-120}"
 PIP_RETRIES="${CSG_PIP_RETRIES:-5}"
 PIP_INDEX_URL="${CSG_PIP_INDEX_URL:-}"
 PIP_EXTRA_INDEX_URL="${CSG_PIP_EXTRA_INDEX_URL:-}"
+PIP_CANDIDATE_MIRRORS="${CSG_PIP_CANDIDATE_MIRRORS:-https://mirrors.cloud.tencent.com/pypi/simple,https://mirrors.aliyun.com/pypi/simple,https://pypi.tuna.tsinghua.edu.cn/simple,https://mirrors.ustc.edu.cn/pypi/simple,https://pypi.org/simple}"
 MIHOMO_NOTICE=""
 DETECTION_WARNING=""
 CURRENT_STAGE="Initialization / 初始化"
@@ -122,6 +123,87 @@ run_pip() {
   fi
 
   run_as_app_user env "${env_args[@]}" "$APP_DIR/.venv/bin/pip" "$@"
+}
+
+trim_whitespace() {
+  local value="$1"
+  value="${value#"${value%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+  printf '%s\n' "$value"
+}
+
+mirror_label() {
+  local url="$1"
+  url="${url#https://}"
+  url="${url#http://}"
+  url="${url%%/*}"
+  printf '%s\n' "$url"
+}
+
+measure_url_ms() {
+  local url="$1"
+  local seconds
+  seconds="$(curl \
+    --output /dev/null \
+    --silent \
+    --show-error \
+    --location \
+    --connect-timeout 4 \
+    --max-time 8 \
+    --write-out '%{time_total}' \
+    "$url" 2>/dev/null)" || return 1
+
+  python3 - "$seconds" <<'PY'
+import sys
+
+print(round(float(sys.argv[1]) * 1000))
+PY
+}
+
+select_pip_index_url() {
+  if [[ -n "$PIP_INDEX_URL" ]]; then
+    log_info "Using user-provided pip index: ${PIP_INDEX_URL} / 正在使用用户指定的 pip 源：${PIP_INDEX_URL}"
+    return 0
+  fi
+
+  local best_url=""
+  local best_ms=""
+  local raw_candidate=""
+  local candidate=""
+  local probe_url=""
+  local candidate_ms=""
+  local label=""
+
+  log_info "Probing pip mirrors before dependency install. / 正在为 Python 依赖安装测速多个 pip 源。"
+
+  while IFS= read -r raw_candidate; do
+    candidate="$(trim_whitespace "$raw_candidate")"
+    if [[ -z "$candidate" ]]; then
+      continue
+    fi
+
+    probe_url="${candidate%/}/pip/"
+    label="$(mirror_label "$candidate")"
+
+    if candidate_ms="$(measure_url_ms "$probe_url")"; then
+      log_info "pip mirror ${label}: ${candidate_ms} ms / pip 源 ${label}：${candidate_ms} 毫秒"
+      if [[ -z "$best_ms" || "$candidate_ms" -lt "$best_ms" ]]; then
+        best_ms="$candidate_ms"
+        best_url="$candidate"
+      fi
+    else
+      log_warn "pip mirror ${label} is unavailable. / pip 源 ${label} 当前不可用。"
+    fi
+  done < <(printf '%s\n' "$PIP_CANDIDATE_MIRRORS" | tr ',;' '\n\n')
+
+  if [[ -n "$best_url" ]]; then
+    PIP_INDEX_URL="$best_url"
+    log_ok "Selected pip mirror: ${best_url} (${best_ms} ms). / 已选择 pip 源：${best_url}（${best_ms} 毫秒）。"
+    return 0
+  fi
+
+  log_warn "No pip mirror probe succeeded; falling back to pip defaults. / 没有测速成功的 pip 源，将回退到 pip 默认源。"
+  return 0
 }
 
 get_env_value() {
@@ -385,6 +467,7 @@ log_step_start "Prepare Python environment / 准备 Python 运行环境"
 if [[ ! -d "$APP_DIR/.venv" ]]; then
   run_as_app_user python3 -m venv "$APP_DIR/.venv"
 fi
+select_pip_index_url
 log_info "Installing Python dependencies. / 正在安装 Python 依赖。"
 log_info "pip timeout=${PIP_TIMEOUT}s, retries=${PIP_RETRIES}. / pip 超时=${PIP_TIMEOUT} 秒，重试次数=${PIP_RETRIES}。"
 if [[ -n "$PIP_INDEX_URL" ]]; then
