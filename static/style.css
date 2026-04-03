@@ -499,6 +499,10 @@ button.is-loading::before {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
+.wide-panel {
+  grid-column: 1 / -1;
+}
+
 .panel-title-row {
   display: flex;
   align-items: flex-start;
@@ -559,6 +563,11 @@ button.is-loading::before {
   padding: 18px 18px 20px;
   background: rgba(255, 254, 246, 0.96);
   border: 1px solid var(--line);
+}
+
+.warning-card {
+  background: var(--warning-soft);
+  border-color: rgba(144, 119, 75, 0.26);
 }
 
 .summary-card,

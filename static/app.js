@@ -345,6 +345,21 @@ function currentExportHost() {
   return state.globalDraft.export_host?.trim() || appSettings().export_host || "";
 }
 
+function currentWebUiPort() {
+  if (window.location.port) {
+    return window.location.port;
+  }
+  return window.location.protocol === "https:" ? "443" : "80";
+}
+
+function currentWebUiEntry() {
+  return `${window.location.protocol}//${window.location.host}/`;
+}
+
+function currentCPortPool() {
+  return state.globalDraft.allowed_c_ports?.trim() || appSettings().allowed_c_ports || "10808-10999";
+}
+
 function importLinkForRoute(route, format = state.exportFormat) {
   if (!route) {
     return "";
@@ -910,6 +925,33 @@ function buildGuideItems() {
   return items;
 }
 
+function renderHomeFirewallReminder() {
+  const webUiPort = `${currentWebUiPort()}/tcp`;
+  const cPortPool = `${currentCPortPool()}/tcp`;
+  const exportHost = currentExportHost() || "not set / 未设置";
+  const optionalIpEntry =
+    currentWebUiPort() === "80"
+      ? "The current WebUI entry is already on port 80. / 当前 WebUI 入口已经是 80 端口。"
+      : "If you also want plain IP access on port 80, open 80/tcp too. / 如果你还要用 80 端口直连访问，请额外放行 80/tcp。";
+
+  setText(
+    "home-firewall-summary",
+    `Open ${webUiPort} for the current WebUI entry, and open ${cPortPool} for C exports. ${optionalIpEntry}`
+  );
+  setText(
+    "home-firewall-webui",
+    `${currentWebUiEntry()} -> open ${webUiPort}. / 当前面板入口请放行 ${webUiPort}。`
+  );
+  setText(
+    "home-firewall-c-ports",
+    `${cPortPool}. Open only the subset you really use. / 请只放行你真正会用到的 C 端口范围。`
+  );
+  setText(
+    "home-firewall-export-host",
+    `${exportHost}. This is the host shown in exported C links. / 这是导出给客户端的 C 链接主机。`
+  );
+}
+
 function renderHome() {
   const inspector = inspectorStatus();
   const onlineText = inspector.candidate_count ? `${inspector.alive_count}/${inspector.candidate_count}` : "未载入";
@@ -928,6 +970,7 @@ function renderHome() {
   setValue("home-active-link", route ? importLinkForRoute(route) : "");
 
   byId("home-guide-list").innerHTML = buildGuideItems().map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+  renderHomeFirewallReminder();
 }
 
 function renderDashboard() {
