@@ -10,6 +10,9 @@ EnvironmentFile=/opt/clash-socks-server-ui/.env
 ExecStart=/opt/clash-socks-server-ui/.venv/bin/uvicorn app.main:app --host ${CSG_HOST} --port ${CSG_PORT}
 Restart=always
 RestartSec=3
+UMask=027
+KillMode=control-group
+TimeoutStopSec=10
 User=clashui
 Group=clashui
 
