@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 027
 
 APP_DIR="/opt/clash-socks-server-ui"
 SERVICE_NAME="clash-socks-webui"
@@ -36,8 +37,11 @@ if [[ ! -f "$APP_DIR/.env" ]]; then
   cp "$APP_DIR/.env.example" "$APP_DIR/.env"
   chown "$APP_USER:$APP_USER" "$APP_DIR/.env"
 fi
+chmod 640 "$APP_DIR/.env"
+install -d -m 750 -o "$APP_USER" -g "$APP_USER" "$APP_DIR/data" "$APP_DIR/runtime" "$APP_DIR/logs"
 
 cp "$APP_DIR/systemd/$SERVICE_NAME.service" "/etc/systemd/system/$SERVICE_NAME.service"
+chmod 644 "/etc/systemd/system/$SERVICE_NAME.service"
 systemctl daemon-reload
 systemctl enable "$SERVICE_NAME"
 

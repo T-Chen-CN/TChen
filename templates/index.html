@@ -1,0 +1,760 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ app_name }}</title>
+    <link rel="stylesheet" href="/static/style.css">
+  </head>
+  <body
+    class="app-body"
+    data-default-test-url="{{ default_test_url }}"
+    data-default-timeout-ms="{{ default_timeout_ms }}"
+  >
+    <div class="app-shell">
+      <aside class="sidebar">
+        <button class="brand-card nav-card" type="button" data-page="home">
+          <span class="brand-mark">CS</span>
+          <span class="brand-copy">
+            <strong>{{ app_name }}</strong>
+            <small>名称 + LOGO</small>
+          </span>
+        </button>
+
+        <nav class="sidebar-nav">
+          <button class="nav-card" type="button" data-page="dashboard">仪表盘</button>
+          <button class="nav-card" type="button" data-page="subscription">Ai订阅管理</button>
+          <button class="nav-card" type="button" data-page="landings">B落地列表</button>
+          <button class="nav-card" type="button" data-page="exports">C输出列表</button>
+          <button class="nav-card" type="button" data-page="settings">设置</button>
+        </nav>
+      </aside>
+
+      <div class="main-shell">
+        <header class="topbar">
+          <div class="topbar-meta">
+            <div class="topbar-chip">
+              <span>当前选中路由</span>
+              <strong id="header-route-name">-</strong>
+            </div>
+            <div class="topbar-chip wide">
+              <span>状态 / 入口</span>
+              <strong id="header-route-meta">-</strong>
+            </div>
+          </div>
+
+          <form method="post" action="/logout">
+            <button type="submit" class="logout-button">退出 {{ username }}</button>
+          </form>
+        </header>
+
+        <section class="page-hero">
+          <div class="page-kicker">WEB CONTROL PANEL</div>
+          <h1 id="page-title">首页</h1>
+          <p id="page-subtitle">按 A 订阅、B 落地、C 输出和系统设置这四类工作分开处理，不再把所有内容堆在同一页。</p>
+        </section>
+
+        <main class="page-stack">
+          <section id="page-home" class="page-panel active">
+            <section class="hero-panel hero-intro">
+              <div class="hero-copy">
+                <div class="section-kicker">首页参考</div>
+                <h2>程序说明与介绍</h2>
+                <p>
+                  这套控制台把整条链路拆成清晰的四步：先录入并检查共享订阅 A，
+                  再维护多条 B 落地，最后在 C 输出页统一管理公网导出、复制链接和做外网诊断。
+                </p>
+              </div>
+
+              <div class="hero-flow">
+                <div class="flow-card">
+                  <span>共享 A</span>
+                  <strong>订阅与节点</strong>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-card">
+                  <span>多条 B</span>
+                  <strong>落地列表</strong>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-card">
+                  <span>多条 C</span>
+                  <strong>输出与诊断</strong>
+                </div>
+              </div>
+
+              <div class="hero-actions">
+                <button class="white-button page-jump" type="button" data-page="subscription">先录入 A 订阅</button>
+                <button class="white-button page-jump" type="button" data-page="landings">去维护 B 落地</button>
+                <button class="white-button page-jump" type="button" data-page="exports">去导出 C 链接</button>
+              </div>
+            </section>
+
+            <div class="home-grid">
+              <section class="surface-panel">
+                <div class="panel-title-row">
+                  <div>
+                    <div class="section-kicker dark">系统摘要</div>
+                    <h3>当前整体情况</h3>
+                  </div>
+                </div>
+
+                <div class="stats-grid">
+                  <div class="stat-card">
+                    <span>路由总数</span>
+                    <strong id="home-route-count">0</strong>
+                  </div>
+                  <div class="stat-card">
+                    <span>运行中</span>
+                    <strong id="home-running-count">0</strong>
+                  </div>
+                  <div class="stat-card">
+                    <span>A 节点在线</span>
+                    <strong id="home-a-online">-</strong>
+                  </div>
+                  <div class="stat-card">
+                    <span>服务器导出地址</span>
+                    <strong id="home-export-host">-</strong>
+                  </div>
+                </div>
+
+                <ol id="home-guide-list" class="guide-list"></ol>
+              </section>
+
+              <section class="surface-panel">
+                <div class="panel-title-row">
+                  <div>
+                    <div class="section-kicker dark">当前选中路由</div>
+                    <h3>链路快照</h3>
+                  </div>
+                </div>
+
+                <div class="summary-grid two">
+                  <div class="summary-card">
+                    <span>路由名称</span>
+                    <strong id="home-active-name">-</strong>
+                  </div>
+                  <div class="summary-card">
+                    <span>运行状态</span>
+                    <strong id="home-active-status">-</strong>
+                  </div>
+                  <div class="summary-card">
+                    <span>当前 A 节点</span>
+                    <strong id="home-active-a">-</strong>
+                  </div>
+                  <div class="summary-card">
+                    <span>B 落地</span>
+                    <strong id="home-active-b">-</strong>
+                  </div>
+                </div>
+
+                <label class="field">
+                  <span>当前标准 C 链接</span>
+                  <div class="input-with-button">
+                    <input id="home-active-link" readonly>
+                    <button id="copy-home-link" type="button">复制</button>
+                  </div>
+                </label>
+              </section>
+            </div>
+          </section>
+
+          <section id="page-dashboard" class="page-panel">
+            <section class="hero-panel">
+              <div class="panel-title-row">
+                <div>
+                  <div class="section-kicker">仪表盘页参考</div>
+                  <h2>A订阅节点状态表</h2>
+                  <p>这里专门看共享 A 的就绪情况，以及所有 B 落地和 C 输出的最新测试摘要。</p>
+                </div>
+                <button class="white-button page-jump" type="button" data-page="subscription">打开 Ai订阅管理</button>
+              </div>
+
+              <div class="summary-grid three wide-gap">
+                <div class="summary-card inverted">
+                  <span>订阅 A</span>
+                  <strong id="dash-subscription-url">未填写</strong>
+                </div>
+                <div class="summary-card inverted">
+                  <span>A 检查器 / 控制器</span>
+                  <strong id="dash-a-runtime">-</strong>
+                </div>
+                <div class="summary-card inverted">
+                  <span>在线节点 / 当前节点</span>
+                  <strong id="dash-a-count">-</strong>
+                </div>
+              </div>
+            </section>
+
+            <div class="split-grid">
+              <section class="hero-panel">
+                <div class="panel-title-row">
+                  <div>
+                    <div class="section-kicker">B落地连通性表格</div>
+                    <h2>B 落地列表摘要</h2>
+                  </div>
+                  <div class="panel-actions">
+                    <button id="test-all-landings" type="button" class="white-button">批量测试 B</button>
+                    <button class="white-button page-jump" type="button" data-page="landings">打开 B落地列表</button>
+                  </div>
+                </div>
+
+                <div class="table-shell">
+                  <table class="data-table compact-table dashboard-landing-grid">
+                    <colgroup>
+                      <col class="col-route">
+                      <col class="col-endpoint">
+                      <col class="col-status">
+                      <col class="col-metric">
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th>路由</th>
+                        <th>B 落地</th>
+                        <th>状态</th>
+                        <th>延迟 / 出口 IP</th>
+                      </tr>
+                    </thead>
+                    <tbody id="dashboard-landing-table"></tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section class="hero-panel">
+                <div class="panel-title-row">
+                  <div>
+                    <div class="section-kicker">C输出连通性表格</div>
+                    <h2>C 输出列表摘要</h2>
+                  </div>
+                  <div class="panel-actions">
+                    <button id="test-all-gateways" type="button" class="white-button">批量测试 C</button>
+                    <button class="white-button page-jump" type="button" data-page="exports">打开 C输出列表</button>
+                  </div>
+                </div>
+
+                <div class="table-shell">
+                  <table class="data-table compact-table dashboard-gateway-grid">
+                    <colgroup>
+                      <col class="col-route">
+                      <col class="col-endpoint">
+                      <col class="col-status">
+                      <col class="col-metric">
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th>路由</th>
+                        <th>C 入口</th>
+                        <th>状态</th>
+                        <th>出口 IP / 位置类型</th>
+                      </tr>
+                    </thead>
+                    <tbody id="dashboard-gateway-table"></tbody>
+                  </table>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <section id="page-subscription" class="page-panel">
+            <section class="hero-panel">
+              <div class="panel-title-row">
+                <div>
+                  <div class="section-kicker">Ai订阅管理页参考</div>
+                  <h2>Ai订阅信息录入</h2>
+                  <p>先把共享订阅 A 保存下来，再独立检查它的节点状态和延迟，不依赖任何 B。</p>
+                </div>
+                <div class="panel-actions">
+                  <button id="save-subscription" type="button" class="white-button">保存订阅</button>
+                  <button id="refresh-subscription" type="button" class="white-button">刷新订阅 A</button>
+                </div>
+              </div>
+
+              <label class="field">
+                <span>Clash 订阅 A</span>
+                <input id="subscription_url" placeholder="https://example.com/link?clash=1">
+              </label>
+
+              <div class="summary-grid three">
+                <div class="summary-card inverted">
+                  <span>订阅保存状态</span>
+                  <strong id="subscription-config-state">等待保存</strong>
+                </div>
+                <div class="summary-card inverted">
+                  <span>A 检查器</span>
+                  <strong id="subscription-a-runtime">-</strong>
+                </div>
+                <div class="summary-card inverted">
+                  <span>当前选中路由</span>
+                  <strong id="subscription-active-route">-</strong>
+                </div>
+              </div>
+            </section>
+
+            <section class="hero-panel">
+              <div class="panel-title-row">
+                <div>
+                  <div class="section-kicker">Ai订阅节点表</div>
+                  <h2>共享 A 节点工作台</h2>
+                  <p>可以先单独载入、测速和筛选 A 节点。只有“应用到当前路由”这一步会影响当前选中路由。</p>
+                </div>
+                <div class="panel-actions">
+                  <button id="load-a-proxies" type="button" class="white-button">载入 A 节点</button>
+                  <button id="test-selected-a-proxy" type="button" class="white-button">测试所选节点</button>
+                  <button id="test-all-a-proxies" type="button" class="white-button">批量测速</button>
+                  <button id="apply-a-proxy" type="button" class="white-button">应用到当前路由</button>
+                </div>
+              </div>
+
+              <div class="summary-grid four">
+                <div class="summary-card inverted">
+                  <span>A 检查器</span>
+                  <strong id="a-status-running">未启动</strong>
+                </div>
+                <div class="summary-card inverted">
+                  <span>A 控制器</span>
+                  <strong id="a-status-controller">未就绪</strong>
+                </div>
+                <div class="summary-card inverted">
+                  <span>在线 / 总数</span>
+                  <strong id="a-status-count">-</strong>
+                </div>
+                <div class="summary-card inverted">
+                  <span>当前路由节点 / 当前选中节点</span>
+                  <strong id="a-status-current">-</strong>
+                </div>
+              </div>
+
+              <label class="field">
+                <span>搜索 A 节点</span>
+                <input id="a-proxy-search" placeholder="按地区、关键词或节点名称筛选">
+              </label>
+
+              <div class="table-shell">
+                <table class="data-table a-proxy-grid">
+                  <colgroup>
+                    <col class="col-select">
+                    <col class="col-node">
+                    <col class="col-status">
+                    <col class="col-delay">
+                    <col class="col-current">
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th style="width:72px;">选择</th>
+                      <th>A 节点</th>
+                      <th style="width:160px;">状态</th>
+                      <th style="width:120px;">延迟</th>
+                      <th style="width:160px;">当前路由</th>
+                    </tr>
+                  </thead>
+                  <tbody id="a-proxy-table"></tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+
+          <section id="page-landings" class="page-panel">
+            <section class="hero-panel">
+              <div class="panel-title-row">
+                <div>
+                  <div class="section-kicker">B落地列表页参考</div>
+                  <h2>B落地链接录入</h2>
+                  <p>这里专门维护每条路由对应的 B 落地信息。所有路由都可以并行运行，不互相覆盖。</p>
+                </div>
+                <div class="panel-actions">
+                  <button id="create-route" type="button" class="white-button">新建路由</button>
+                  <button id="duplicate-route" type="button" class="white-button">复制当前</button>
+                  <button id="delete-route" type="button" class="white-button danger">删除当前</button>
+                </div>
+              </div>
+
+              <div class="summary-grid four">
+                <div class="summary-card inverted">
+                  <span>当前选中路由</span>
+                  <strong id="landing-selected-route">-</strong>
+                </div>
+                <div class="summary-card inverted">
+                  <span>运行状态</span>
+                  <strong id="landing-selected-status">-</strong>
+                </div>
+                <div class="summary-card inverted">
+                  <span>当前 A 节点</span>
+                  <strong id="landing-selected-a">-</strong>
+                </div>
+                <div class="summary-card inverted">
+                  <span>C 公网入口</span>
+                  <strong id="landing-selected-c">-</strong>
+                </div>
+              </div>
+
+              <div class="form-grid two">
+                <label class="field">
+                  <span>当前编辑路由</span>
+                  <select id="route-picker-landing"></select>
+                </label>
+                <label class="field">
+                  <span>路由名称</span>
+                  <input id="route_name" placeholder="例如：印尼落地 01">
+                </label>
+              </div>
+
+              <label class="field">
+                <span>B 完整 Socks5 链接</span>
+                <div class="input-with-button">
+                  <input id="landing_socks_url" placeholder="socks5://user:pass@host:port">
+                  <button id="parse-landing-socks" type="button">录入</button>
+                </div>
+              </label>
+
+              <div id="landing-import-preview" class="preview-grid hidden"></div>
+
+              <div class="form-grid four">
+                <label class="field">
+                  <span>B 主机</span>
+                  <input id="landing_host" placeholder="218.33.88.61">
+                </label>
+                <label class="field">
+                  <span>B 端口</span>
+                  <input id="landing_port" placeholder="8022">
+                </label>
+                <label class="field">
+                  <span>B 用户名</span>
+                  <input id="landing_username" placeholder="username">
+                </label>
+                <label class="field">
+                  <span>B 密码</span>
+                  <input id="landing_password" type="password" placeholder="password">
+                </label>
+              </div>
+
+              <div class="panel-actions">
+                <button id="save-route-landing" type="button" class="white-button">保存当前路由</button>
+                <button id="start-route" type="button" class="white-button">启动当前路由</button>
+                <button id="stop-route" type="button" class="white-button">停止当前路由</button>
+                <button id="test-landing" type="button" class="white-button">测试当前 B</button>
+              </div>
+            </section>
+
+            <section class="hero-panel">
+              <div class="panel-title-row">
+                <div>
+                  <div class="section-kicker">B落地链接表</div>
+                  <h2>B 落地列表</h2>
+                  <p>这里汇总每条路由的 B 落地地址、运行状态和 B 直连测试结果，方便批量筛查落地是否可用。</p>
+                </div>
+                <div class="panel-actions">
+                  <input id="landing-route-search" class="panel-search" placeholder="搜索路由名、B 落地或 A 节点">
+                  <button id="test-all-landings-page" type="button" class="white-button">批量测试 B</button>
+                </div>
+              </div>
+
+              <div class="table-shell">
+                <table class="data-table export-route-grid">
+                  <colgroup>
+                    <col class="col-route">
+                    <col class="col-a">
+                    <col class="col-b">
+                    <col class="col-c">
+                    <col class="col-connectivity">
+                    <col class="col-lookup">
+                    <col class="col-exit-ip">
+                    <col class="col-actions">
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>路由</th>
+                      <th>B 落地</th>
+                      <th>当前 A 节点</th>
+                      <th>C 入口</th>
+                      <th>运行</th>
+                      <th>B 测试</th>
+                      <th>延迟</th>
+                      <th style="width:88px;">选择</th>
+                    </tr>
+                  </thead>
+                  <tbody id="landing-route-table"></tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+
+          <section id="page-exports" class="page-panel">
+            <section class="hero-panel">
+              <div class="panel-title-row">
+                <div>
+                  <div class="section-kicker">C输出列表页参考</div>
+                  <h2>C输出设置与选择</h2>
+                  <p>这里负责当前选中路由的 C 输出格式、A 节点选择、监听入口和公网诊断，不会影响其他已运行路由。</p>
+                </div>
+                <div class="panel-actions">
+                  <button id="save-route-export" type="button" class="white-button">保存 C 设置</button>
+                  <button id="test-gateway" type="button" class="white-button">测试当前 C</button>
+                </div>
+              </div>
+
+              <div class="summary-grid four">
+                <div class="summary-card inverted">
+                  <span>当前选中路由</span>
+                  <strong id="export-selected-route">-</strong>
+                </div>
+                <div class="summary-card inverted">
+                  <span>运行状态</span>
+                  <strong id="export-selected-status">-</strong>
+                </div>
+                <div class="summary-card inverted">
+                  <span>B 落地</span>
+                  <strong id="export-selected-b">-</strong>
+                </div>
+                <div class="summary-card inverted">
+                  <span>服务器默认 IP</span>
+                  <strong id="export-host-readonly">-</strong>
+                </div>
+              </div>
+
+              <div class="form-grid three">
+                <label class="field">
+                  <span>当前编辑路由</span>
+                  <select id="route-picker-export"></select>
+                </label>
+                <label class="field">
+                  <span>C 输出格式</span>
+                  <select id="export-format">
+                    <option value="socks5_uri">socks5://user:pass@host:port</option>
+                    <option value="socks_uri">socks://user:pass@host:port</option>
+                    <option value="socks5h_uri">socks5h://user:pass@host:port</option>
+                    <option value="host_port_user_pass">host:port:user:pass</option>
+                    <option value="user_pass_at_host_port">user:pass@host:port</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>选择 A 节点</span>
+                  <div class="input-with-button">
+                    <select id="c-page-proxy-select"></select>
+                    <button id="apply-export-proxy" type="button">应用</button>
+                  </div>
+                </label>
+              </div>
+
+              <div class="form-grid three">
+                <label class="field">
+                  <span>C 监听端口</span>
+                  <input id="listen_port" placeholder="10808">
+                </label>
+                <label class="field">
+                  <span>测速目标 URL</span>
+                  <input id="test_url" placeholder="https://api.ipify.org">
+                </label>
+                <label class="field">
+                  <span>C 用户名</span>
+                  <input id="gateway_username" placeholder="gateway user">
+                </label>
+                <label class="field">
+                  <span>C 密码</span>
+                  <input id="gateway_password" type="password" placeholder="gateway password">
+                </label>
+                <label class="field">
+                  <span>超时 (ms)</span>
+                  <input id="timeout_ms" placeholder="5000">
+                </label>
+              </div>
+
+              <label class="field">
+                <span>完整 C 链接</span>
+                <div class="display-with-button">
+                  <div id="import-link-quick" class="readonly-display"></div>
+                  <button id="copy-import-quick" type="button">一键复制</button>
+                </div>
+              </label>
+
+              <div class="summary-grid four">
+                <div class="summary-card inverted">
+                  <span>C 连通性</span>
+                  <strong id="export-connectivity-status">-</strong>
+                </div>
+                <div class="summary-card inverted">
+                  <span>连通延迟</span>
+                  <strong id="export-connectivity-delay">-</strong>
+                </div>
+                <div class="summary-card inverted">
+                  <span>IP 查询</span>
+                  <strong id="export-iplookup-status">-</strong>
+                </div>
+                <div class="summary-card inverted">
+                  <span>出口 IP</span>
+                  <strong id="export-exit-ip">-</strong>
+                </div>
+              </div>
+            </section>
+
+            <section class="hero-panel">
+              <div class="panel-title-row">
+                <div>
+                  <div class="section-kicker">C输出链接表</div>
+                  <h2>C 输出列表</h2>
+                  <p>这里集中显示所有路由的 C 导出链接和外网测试结果，可以批量筛查哪些 C 已可供外部设备直接使用。</p>
+                </div>
+                <div class="panel-actions">
+                  <input id="export-route-search" class="panel-search" placeholder="搜索路由名、B 落地或 C 入口">
+                  <button id="start-all-routes-page" type="button" class="white-button">批量运行</button>
+                  <button id="test-all-gateways-page" type="button" class="white-button">批量测试 C</button>
+                </div>
+              </div>
+
+              <div class="table-shell">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>路由</th>
+                      <th>当前 A 节点</th>
+                      <th>B 落地</th>
+                      <th>C 入口</th>
+                      <th>连通性</th>
+                      <th>IP 查询</th>
+                      <th>出口 IP</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="export-route-table"></tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+
+          <section id="page-settings" class="page-panel">
+            <div class="settings-layout">
+              <aside class="settings-side">
+                <button class="settings-nav active" type="button" data-settings-tab="server">服务器设置</button>
+                <button class="settings-nav" type="button" data-settings-tab="core">核心管理</button>
+                <button class="settings-nav" type="button" data-settings-tab="logs">运行日志</button>
+              </aside>
+
+              <div class="settings-content">
+                <section id="settings-pane-server" class="hero-panel settings-pane active">
+                  <div class="panel-title-row">
+                    <div>
+                      <div class="section-kicker">设置页参考</div>
+                      <h2>设置项目</h2>
+                      <p>这里维护服务器级的公共参数，不属于某一条具体路由。</p>
+                    </div>
+                    <button id="save-server-settings" type="button" class="white-button">保存服务器设置</button>
+                  </div>
+
+                  <div class="form-grid two">
+                    <label class="field">
+                      <span>对外导出地址</span>
+                      <input id="settings_export_host" placeholder="43.138.133.167">
+                    </label>
+                    <label class="field">
+                      <span>服务器已开放 C 端口池</span>
+                      <input id="settings_allowed_c_ports" placeholder="10808-10999">
+                    </label>
+                  </div>
+
+                  <div class="summary-grid three">
+                    <div class="summary-card inverted">
+                      <span>当前选中路由</span>
+                      <strong id="settings-active-route">-</strong>
+                    </div>
+                    <div class="summary-card inverted">
+                      <span>运行中路由</span>
+                      <strong id="settings-running-count">0</strong>
+                    </div>
+                    <div class="summary-card inverted">
+                      <span>当前导出端口池</span>
+                      <strong id="settings-port-pool-echo">-</strong>
+                    </div>
+                  </div>
+                </section>
+
+                <section id="settings-pane-core" class="hero-panel settings-pane">
+                  <div class="panel-title-row">
+                    <div>
+                      <div class="section-kicker">设置内容</div>
+                      <h2>核心管理</h2>
+                      <p>这里查看核心和检查器的运行情况，并统一执行 mihomo 安装或更新。</p>
+                    </div>
+                    <button id="install-core" type="button" class="white-button">安装或更新 mihomo</button>
+                  </div>
+
+                  <div class="summary-grid four">
+                    <div class="summary-card inverted">
+                      <span>A 检查器</span>
+                      <strong id="settings-core-inspector">-</strong>
+                    </div>
+                    <div class="summary-card inverted">
+                      <span>检查器控制端口</span>
+                      <strong id="settings-core-controller">-</strong>
+                    </div>
+                    <div class="summary-card inverted">
+                      <span>当前路由控制器</span>
+                      <strong id="settings-core-route-controller">-</strong>
+                    </div>
+                    <div class="summary-card inverted">
+                      <span>当前路由监听端口</span>
+                      <strong id="settings-core-listen-port">-</strong>
+                    </div>
+                  </div>
+
+                  <div class="note-grid">
+                    <div class="note-card">
+                      <strong>订阅缓存文件</strong>
+                      <p id="settings-provider-path">-</p>
+                    </div>
+                    <div class="note-card">
+                      <strong>当前路由日志文件</strong>
+                      <p id="settings-log-path">-</p>
+                    </div>
+                    <div class="note-card">
+                      <strong>当前路由配置文件</strong>
+                      <p id="settings-config-path">-</p>
+                    </div>
+                    <div class="note-card">
+                      <strong>mihomo 可执行文件</strong>
+                      <p id="settings-mihomo-path">-</p>
+                    </div>
+                  </div>
+                </section>
+
+                <section id="settings-pane-logs" class="hero-panel settings-pane">
+                  <div class="panel-title-row">
+                    <div>
+                      <div class="section-kicker">运行日志</div>
+                      <h2>设置内容</h2>
+                      <p>这里集中查看当前选中路由的运行日志，排查启动、切换节点和公网测试的异常。</p>
+                    </div>
+                    <div class="panel-actions">
+                      <select id="route-picker-logs"></select>
+                      <button id="refresh-logs" type="button" class="white-button">刷新日志</button>
+                    </div>
+                  </div>
+
+                  <div class="summary-grid three">
+                    <div class="summary-card inverted">
+                      <span>日志目标</span>
+                      <strong id="log-route-name">-</strong>
+                    </div>
+                    <div class="summary-card inverted">
+                      <span>路由摘要</span>
+                      <strong id="log-route-meta">-</strong>
+                    </div>
+                    <div class="summary-card inverted">
+                      <span>最近刷新时间</span>
+                      <strong id="log-refresh-time">尚未刷新</strong>
+                    </div>
+                  </div>
+
+                  <div class="log-shell">
+                    <pre id="log-box">请选择一条路由后刷新日志。</pre>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+    <script src="/static/app.js"></script>
+  </body>
+</html>

@@ -14,8 +14,18 @@ from .auth import require_api_login, require_page_login, verify_credentials
 from .config import CONFIG
 
 
-app = FastAPI(title=CONFIG.app_name)
-app.add_middleware(SessionMiddleware, secret_key=CONFIG.session_secret, same_site="lax")
+app = FastAPI(
+    title=CONFIG.app_name,
+    docs_url="/docs" if CONFIG.enable_docs else None,
+    openapi_url="/openapi.json" if CONFIG.enable_docs else None,
+    redoc_url=None,
+)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=CONFIG.session_secret,
+    same_site="lax",
+    https_only=CONFIG.base_url.strip().lower().startswith("https://"),
+)
 
 templates = Jinja2Templates(directory=str(gateway.ROOT_DIR / "templates"))
 app.mount("/static", StaticFiles(directory=str(gateway.ROOT_DIR / "static")), name="static")
@@ -33,7 +43,7 @@ def json_error(exc: Exception, status_code: int = 400) -> JSONResponse:
 
 
 @app.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request) -> HTMLResponse:
+async def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request, "app_name": CONFIG.app_name})
 
 
@@ -58,7 +68,7 @@ async def logout(request: Request):
 
 @app.get("/", response_class=HTMLResponse)
 @require_page_login
-async def index(request: Request) -> HTMLResponse:
+async def index(request: Request):
     return templates.TemplateResponse(
         "index.html",
         {
@@ -69,6 +79,17 @@ async def index(request: Request) -> HTMLResponse:
             "username": request.session.get("username", CONFIG.admin_username),
         },
     )
+
+
+@app.on_event("startup")
+async def cleanup_stale_runtime() -> None:
+    try:
+        killed = gateway.cleanup_stale_processes()
+        restored = gateway.restore_tracked_processes()
+        if killed or restored:
+            print(f"[startup] cleaned stale mihomo pids={killed}, restored={restored}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"[startup] stale mihomo cleanup skipped: {exc}")
 
 
 @app.get("/api/state")
