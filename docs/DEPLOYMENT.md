@@ -23,6 +23,7 @@ echo "[1/2] Downloading bootstrap script from GitHub..." && curl -fL --retry 3 -
 
 这会自动执行：
 
+- 在下载仓库源码前测速多个 GitHub 源码通道，并自动选择更快可用的一个
 - 下载仓库源码
 - 安装依赖
 - 在安装 Python 依赖前测速多个 pip 源并自动选择更快的一个
@@ -134,8 +135,20 @@ rm -f /tmp/clash-socks-bootstrap.sh
 - `CSG_PIP_RETRIES`
   pip 下载重试次数，默认 `5`。
 
+- `CSG_REPO_CANDIDATE_CHANNELS`
+  可选，逗号分隔的 GitHub 源码通道候选列表。默认会探测 `archive-branch`、`archive-tag`、`api-tarball`、`codeload` 和 `git-clone`。
+
+- `CSG_REPO_FETCH_TIMEOUT`
+  GitHub 源码通道探测超时时间，默认 `15` 秒。
+
+- `CSG_REPO_DOWNLOAD_TIMEOUT`
+  GitHub 源码实际下载超时时间，默认 `300` 秒。
+
 - `REPO_REF`
   指定 bootstrap 下载哪个分支或 tag。
+
+- `REPO_ARCHIVE_URL`
+  可选，手动指定源码归档地址。设置后 bootstrap 会跳过 GitHub 通道测速，直接使用这个地址下载源码。
 
 ## 手动源码安装
 
