@@ -23,10 +23,11 @@ echo "[1/2] Downloading bootstrap script from GitHub..." && curl -fL --retry 3 -
 
 这会自动执行：
 
-- 在下载仓库源码前测速多个 GitHub 源码通道，并自动选择更快可用的一个
-- 下载仓库源码
+- 优先通过 `raw.githubusercontent.com` 同步一份精简运行源码
+- 如果 raw 同步失败，再回退到 `git clone`、GitHub API 归档或 `codeload`
 - 安装依赖
-- 在安装 Python 依赖前测速多个 pip 源并自动选择更快的一个
+- 优先使用 Ubuntu 软件源里的 Python 包
+- 只有系统 Python 包不可用时，才回退到 `pip` 并自动选择更快的镜像
 - 创建运行用户
 - 初始化 `.env`
 - 启动 `systemd`
@@ -135,11 +136,14 @@ rm -f /tmp/clash-socks-bootstrap.sh
 - `CSG_PIP_RETRIES`
   pip 下载重试次数，默认 `5`。
 
-- `CSG_REPO_CANDIDATE_CHANNELS`
-  可选，逗号分隔的 GitHub 源码通道候选列表。默认会探测 `archive-branch`、`archive-tag`、`api-tarball`、`codeload` 和 `git-clone`。
+- `CSG_MIHOMO_PREINSTALL_TIMEOUT`
+  可选，`mihomo` 预装的最长等待时间，默认 `45` 秒。设为 `0` 可在安装阶段直接跳过预装。
+
+- `CSG_REPO_FETCH_STRATEGIES`
+  可选，逗号分隔的 GitHub 源码获取策略。默认按 `raw-files,git-clone,api-tarball,codeload` 的顺序依次尝试。
 
 - `CSG_REPO_FETCH_TIMEOUT`
-  GitHub 源码通道探测超时时间，默认 `15` 秒。
+  GitHub 源码获取相关请求的超时时间，默认 `15` 秒。
 
 - `CSG_REPO_DOWNLOAD_TIMEOUT`
   GitHub 源码实际下载超时时间，默认 `300` 秒。
@@ -148,7 +152,7 @@ rm -f /tmp/clash-socks-bootstrap.sh
   指定 bootstrap 下载哪个分支或 tag。
 
 - `REPO_ARCHIVE_URL`
-  可选，手动指定源码归档地址。设置后 bootstrap 会跳过 GitHub 通道测速，直接使用这个地址下载源码。
+  可选，手动指定源码归档地址。设置后 bootstrap 会跳过默认获取策略，直接使用这个地址下载源码。
 
 ## 手动源码安装
 

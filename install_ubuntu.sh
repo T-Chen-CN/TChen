@@ -16,10 +16,32 @@ PIP_RETRIES="${CSG_PIP_RETRIES:-5}"
 PIP_INDEX_URL="${CSG_PIP_INDEX_URL:-}"
 PIP_EXTRA_INDEX_URL="${CSG_PIP_EXTRA_INDEX_URL:-}"
 PIP_CANDIDATE_MIRRORS="${CSG_PIP_CANDIDATE_MIRRORS:-https://mirrors.cloud.tencent.com/pypi/simple,https://mirrors.aliyun.com/pypi/simple,https://pypi.tuna.tsinghua.edu.cn/simple,https://mirrors.ustc.edu.cn/pypi/simple,https://pypi.org/simple}"
-MIHOMO_NOTICE=""
-DETECTION_WARNING=""
+MIHOMO_PREINSTALL_TIMEOUT="${CSG_MIHOMO_PREINSTALL_TIMEOUT:-45}"
 CURRENT_STAGE="Initialization / 初始化"
 STEP_INDEX=0
+MIHOMO_NOTICE=""
+DETECTION_WARNING=""
+PYTHON_RUNTIME="system"
+APP_PYTHON="/usr/bin/python3"
+
+APT_BASE_PACKAGES=(
+  python3
+  python3-venv
+  python3-pip
+  curl
+  ca-certificates
+  nginx
+)
+
+APT_PYTHON_PACKAGES=(
+  python3-fastapi
+  python3-uvicorn
+  python3-jinja2
+  python3-multipart
+  python3-dotenv
+  python3-itsdangerous
+  python3-yaml
+)
 
 log_step_start() {
   STEP_INDEX=$((STEP_INDEX + 1))
@@ -85,6 +107,16 @@ run_as_app_user() {
   runuser -u "$APP_USER" -- "$@"
 }
 
+run_app_python() {
+  run_as_app_user env PYTHONPATH="$APP_DIR" "$APP_PYTHON" "$@"
+}
+
+run_app_python_with_timeout() {
+  local seconds="$1"
+  shift
+  run_as_app_user env PYTHONPATH="$APP_DIR" timeout "${seconds}s" "$APP_PYTHON" "$@"
+}
+
 retry_command() {
   local attempts="$1"
   local sleep_seconds="$2"
@@ -101,7 +133,7 @@ retry_command() {
       return "$exit_code"
     fi
 
-    log_warn "Command failed (attempt ${attempt}/${attempts}); retrying in ${sleep_seconds}s. / 命令执行失败（第 ${attempt}/${attempts} 次），${sleep_seconds} 秒后重试。"
+    log_warn "Command failed (${attempt}/${attempts}); retrying in ${sleep_seconds}s. / 命令失败（${attempt}/${attempts}），${sleep_seconds} 秒后重试。"
     attempt=$((attempt + 1))
     sleep "$sleep_seconds"
   done
@@ -122,14 +154,14 @@ run_pip() {
     env_args+=("PIP_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}")
   fi
 
-  run_as_app_user env "${env_args[@]}" "$APP_DIR/.venv/bin/pip" "$@"
+  run_as_app_user env "${env_args[@]}" "$APP_DIR/.venv/bin/python" -m pip "$@"
 }
 
 trim_whitespace() {
   local value="$1"
   value="${value#"${value%%[![:space:]]*}"}"
   value="${value%"${value##*[![:space:]]}"}"
-  printf '%s\n' "$value"
+  printf '%s' "$value"
 }
 
 mirror_label() {
@@ -137,7 +169,7 @@ mirror_label() {
   url="${url#https://}"
   url="${url#http://}"
   url="${url%%/*}"
-  printf '%s\n' "$url"
+  printf '%s' "$url"
 }
 
 measure_url_ms() {
@@ -174,36 +206,31 @@ select_pip_index_url() {
   local candidate_ms=""
   local label=""
 
-  log_info "Probing pip mirrors before dependency install. / 正在为 Python 依赖安装测速多个 pip 源。"
+  log_info "System Python packages are unavailable; probing pip mirrors. / 系统 Python 包不可用，开始测速 pip 镜像。"
 
   while IFS= read -r raw_candidate; do
     candidate="$(trim_whitespace "$raw_candidate")"
-    if [[ -z "$candidate" ]]; then
-      continue
-    fi
+    [[ -z "$candidate" ]] && continue
 
     probe_url="${candidate%/}/pip/"
     label="$(mirror_label "$candidate")"
-
     if candidate_ms="$(measure_url_ms "$probe_url")"; then
-      log_info "pip mirror ${label}: ${candidate_ms} ms / pip 源 ${label}：${candidate_ms} 毫秒"
+      log_info "pip mirror ${label}: ${candidate_ms} ms / pip 镜像 ${label}: ${candidate_ms} ms"
       if [[ -z "$best_ms" || "$candidate_ms" -lt "$best_ms" ]]; then
         best_ms="$candidate_ms"
         best_url="$candidate"
       fi
     else
-      log_warn "pip mirror ${label} is unavailable. / pip 源 ${label} 当前不可用。"
+      log_warn "pip mirror ${label} is unavailable. / pip 镜像 ${label} 当前不可用。"
     fi
   done < <(printf '%s\n' "$PIP_CANDIDATE_MIRRORS" | tr ',;' '\n\n')
 
   if [[ -n "$best_url" ]]; then
     PIP_INDEX_URL="$best_url"
-    log_ok "Selected pip mirror: ${best_url} (${best_ms} ms). / 已选择 pip 源：${best_url}（${best_ms} 毫秒）。"
-    return 0
+    log_ok "Selected pip mirror: ${best_url} (${best_ms} ms). / 已选择 pip 镜像：${best_url}（${best_ms} ms）。"
+  else
+    log_warn "No pip mirror probe succeeded; using pip defaults. / 没有测速成功的 pip 镜像，将回退到 pip 默认源。"
   fi
-
-  log_warn "No pip mirror probe succeeded; falling back to pip defaults. / 没有测速成功的 pip 源，将回退到 pip 默认源。"
-  return 0
 }
 
 get_env_value() {
@@ -261,10 +288,10 @@ PY
 format_http_host() {
   local host="$1"
   if [[ "$host" == *:* && "$host" != \[*\] ]]; then
-    printf '[%s]\n' "$host"
+    printf '[%s]' "$host"
     return
   fi
-  printf '%s\n' "$host"
+  printf '%s' "$host"
 }
 
 build_http_url() {
@@ -273,17 +300,17 @@ build_http_url() {
   local formatted_host
   formatted_host="$(format_http_host "$host")"
   if [[ "$port" == "80" ]]; then
-    printf 'http://%s/\n' "$formatted_host"
+    printf 'http://%s/' "$formatted_host"
     return
   fi
-  printf 'http://%s:%s/\n' "$formatted_host" "$port"
+  printf 'http://%s:%s/' "$formatted_host" "$port"
 }
 
 detect_public_host() {
   local configured="${CSG_PUBLIC_HOST:-}"
   local candidate=""
   if [[ -n "$configured" ]]; then
-    printf '%s\n' "$configured"
+    printf '%s' "$configured"
     return
   fi
 
@@ -294,18 +321,18 @@ detect_public_host() {
   do
     candidate="$(curl -fsSL --max-time 8 "$source" 2>/dev/null | tr -d '[:space:]' || true)"
     if looks_like_ipv4 "$candidate"; then
-      printf '%s\n' "$candidate"
+      printf '%s' "$candidate"
       return
     fi
   done
 
   candidate="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
   if [[ -n "$candidate" ]]; then
-    printf '%s\n' "$candidate"
+    printf '%s' "$candidate"
     return
   fi
 
-  printf '127.0.0.1\n'
+  printf '127.0.0.1'
 }
 
 wait_for_http() {
@@ -425,13 +452,106 @@ write_nginx_config() {
   nginx -t
 }
 
+write_runtime_launcher() {
+  local launcher_path="$APP_DIR/runtime/start-webui.sh"
+
+  cat > "$launcher_path" <<EOF
+#!/usr/bin/env bash
+set -Eeuo pipefail
+cd "$APP_DIR"
+exec "$APP_PYTHON" -m uvicorn app.main:app --host "\${CSG_HOST}" --port "\${CSG_PORT}"
+EOF
+
+  chown "$APP_USER:$APP_USER" "$launcher_path"
+  chmod 750 "$launcher_path"
+}
+
+prune_stale_files() {
+  rm -f "$APP_DIR/app/gateway.py" "$APP_DIR/app/gateway.py.bak-20260331"
+  rm -f "$APP_DIR/README.md" "$APP_DIR/SECURITY.md" "$APP_DIR/.env.example"
+  rm -rf "$APP_DIR/docs" "$APP_DIR/nginx"
+  find "$APP_DIR" -type d -name '__pycache__' -prune -exec rm -rf {} + 2>/dev/null || true
+}
+
+cleanup_unused_runtime_artifacts() {
+  if [[ "$PYTHON_RUNTIME" == "system" && -d "$APP_DIR/.venv" ]]; then
+    rm -rf "$APP_DIR/.venv"
+    log_info "Removed the stale virtualenv because system Python is active. / 已清理旧的 virtualenv，因为当前使用的是系统 Python。"
+  fi
+}
+
+system_python_packages_available() {
+  local package_name
+  for package_name in "${APT_PYTHON_PACKAGES[@]}"; do
+    if ! apt-cache show "$package_name" >/dev/null 2>&1; then
+      return 1
+    fi
+  done
+  return 0
+}
+
+install_system_python_packages() {
+  if ! system_python_packages_available; then
+    log_warn "Some Ubuntu Python packages are unavailable; skipping the apt runtime path. / 部分 Ubuntu Python 包不可用，跳过 apt 运行时路径。"
+    return 1
+  fi
+
+  apt-get install -y -o Dpkg::Use-Pty=0 "${APT_PYTHON_PACKAGES[@]}"
+}
+
+smoke_test_system_python() {
+  run_as_app_user env PYTHONPATH="$APP_DIR" /usr/bin/python3 -c \
+    "import fastapi, uvicorn, jinja2, multipart, dotenv, itsdangerous, yaml, app.main"
+}
+
+smoke_test_runtime() {
+  run_app_python -c "import app.main"
+}
+
+prepare_python_runtime() {
+  if install_system_python_packages && smoke_test_system_python; then
+    PYTHON_RUNTIME="system"
+    APP_PYTHON="/usr/bin/python3"
+    write_runtime_launcher
+    log_ok "Using Ubuntu system Python packages. / 已切换到 Ubuntu 系统 Python 包运行。"
+    return 0
+  fi
+
+  log_warn "Falling back to a private virtualenv with pip. / 正在回退到私有 virtualenv + pip 方案。"
+
+  if [[ ! -d "$APP_DIR/.venv" ]]; then
+    run_as_app_user python3 -m venv "$APP_DIR/.venv"
+  fi
+
+  select_pip_index_url
+  log_info "Installing Python dependencies with pip. / 正在通过 pip 安装 Python 依赖。"
+  if ! retry_command 3 5 run_pip install --retries "$PIP_RETRIES" --timeout "$PIP_TIMEOUT" -r "$APP_DIR/requirements.txt"; then
+    log_warn "Python dependency installation failed after retries. / Python 依赖在多次重试后仍然失败。"
+    log_warn "You can rerun the installer with CSG_PIP_INDEX_URL set to a reachable mirror. / 你可以传入 CSG_PIP_INDEX_URL 后重新执行安装。"
+    false
+  fi
+
+  PYTHON_RUNTIME="venv"
+  APP_PYTHON="$APP_DIR/.venv/bin/python"
+  write_runtime_launcher
+  smoke_test_runtime
+  log_ok "Virtualenv runtime is ready. / virtualenv 运行时已就绪。"
+}
+
 initialize_app_state() {
   log_info "Initializing default application state. / 正在初始化默认应用状态。"
-  run_as_app_user bash -lc "cd '$APP_DIR' && '$APP_DIR/.venv/bin/python' -c \"from app.gateway_multi import load_settings; settings = load_settings(); print(settings.export_host)\""
+  run_app_python -c "from app.gateway_multi import load_settings; settings = load_settings(); print(settings.export_host)"
 
-  log_info "Trying to preinstall mihomo. / 正在尝试预下载 mihomo。"
-  if ! run_as_app_user bash -lc "cd '$APP_DIR' && '$APP_DIR/.venv/bin/python' -c \"from app.gateway_multi import ensure_mihomo; print(ensure_mihomo())\""; then
-    MIHOMO_NOTICE="mihomo was not preinstalled automatically. You can install it later from the UI."
+  if [[ "$MIHOMO_PREINSTALL_TIMEOUT" == "0" ]]; then
+    MIHOMO_NOTICE="mihomo preinstall was skipped during setup. You can install it later from the UI."
+    log_warn "${MIHOMO_NOTICE}"
+    return 0
+  fi
+
+  log_info "Trying to preinstall mihomo with a short timeout. / 正在用短超时尝试预装 mihomo。"
+  if ! run_app_python_with_timeout "$MIHOMO_PREINSTALL_TIMEOUT" -c \
+    "from app.gateway_multi import ensure_mihomo; print(ensure_mihomo())"; then
+    MIHOMO_NOTICE="mihomo was not preinstalled automatically within the setup timeout. You can install it later from the UI."
     log_warn "${MIHOMO_NOTICE}"
   fi
 }
@@ -440,8 +560,8 @@ export DEBIAN_FRONTEND=noninteractive
 log_info "Installer started on Ubuntu ${VERSION_ID:-unknown}. / 安装器已在 Ubuntu ${VERSION_ID:-unknown} 上启动。"
 
 log_step_start "Install system packages / 安装系统依赖"
-apt-get update
-apt-get install -y python3 python3-venv python3-pip curl ca-certificates nginx
+apt-get update -qq
+apt-get install -y -o Dpkg::Use-Pty=0 "${APT_BASE_PACKAGES[@]}"
 log_ok "System packages installed. / 系统依赖安装完成。"
 
 log_step_start "Create application user / 创建运行用户"
@@ -459,26 +579,23 @@ tar \
   --exclude='data' \
   --exclude='runtime' \
   --exclude='logs' \
+  --exclude='docs' \
+  --exclude='README.md' \
+  --exclude='SECURITY.md' \
+  --exclude='.env.example' \
+  --exclude='nginx' \
+  --exclude='*.bak-*' \
   -cf - . | tar -xf - -C "$APP_DIR"
 chown -R "$APP_USER:$APP_USER" "$APP_DIR"
+prune_stale_files
 log_ok "Project files copied to ${APP_DIR}. / 项目文件已同步到 ${APP_DIR}。"
 
-log_step_start "Prepare Python environment / 准备 Python 运行环境"
-if [[ ! -d "$APP_DIR/.venv" ]]; then
-  run_as_app_user python3 -m venv "$APP_DIR/.venv"
-fi
-select_pip_index_url
-log_info "Installing Python dependencies. / 正在安装 Python 依赖。"
-log_info "pip timeout=${PIP_TIMEOUT}s, retries=${PIP_RETRIES}. / pip 超时=${PIP_TIMEOUT} 秒，重试次数=${PIP_RETRIES}。"
-if [[ -n "$PIP_INDEX_URL" ]]; then
-  log_info "Using custom pip index: ${PIP_INDEX_URL} / 正在使用自定义 pip 源：${PIP_INDEX_URL}"
-fi
-if ! retry_command 3 5 run_pip install --retries "$PIP_RETRIES" --timeout "$PIP_TIMEOUT" -r "$APP_DIR/requirements.txt"; then
-  log_warn "Python dependency installation failed after retries. / Python 依赖安装在多次重试后仍然失败。"
-  log_warn "If your server reaches PyPI slowly, rerun with CSG_PIP_INDEX_URL set to a reachable mirror. / 如果服务器访问 PyPI 较慢，请设置 CSG_PIP_INDEX_URL 为可访问的镜像后重试。"
-  false
-fi
-log_ok "Python environment is ready. / Python 运行环境已就绪。"
+log_step_start "Prepare runtime directories / 准备运行目录"
+install -d -m 750 -o "$APP_USER" -g "$APP_USER" "$APP_DIR/data" "$APP_DIR/runtime" "$APP_DIR/logs"
+log_ok "Runtime directories are ready. / 运行目录已就绪。"
+
+log_step_start "Prepare Python runtime / 准备 Python 运行时"
+prepare_python_runtime
 
 log_step_start "Initialize application settings / 初始化应用配置"
 PUBLIC_HOST="$(detect_public_host)"
@@ -487,7 +604,7 @@ BASE_URL="${CSG_BASE_URL_OVERRIDE:-${PUBLIC_HTTP_URL%/}}"
 ENV_PATH="$APP_DIR/.env"
 
 if is_private_or_loopback_host "$PUBLIC_HOST"; then
-  DETECTION_WARNING="Detected export host ${PUBLIC_HOST}, which looks like a private or loopback address. If this server has a different public IP, pass CSG_PUBLIC_HOST during installation or update the export host in the WebUI after deployment."
+  DETECTION_WARNING="Detected export host ${PUBLIC_HOST}, which looks like a private or loopback address. If the server has a different public IP, pass CSG_PUBLIC_HOST during installation or update the export host in the WebUI later."
 fi
 
 if [[ ! -f "$ENV_PATH" ]]; then
@@ -497,12 +614,11 @@ sync_managed_env "$ENV_PATH" "$PUBLIC_HOST" "$BASE_URL"
 
 chown "$APP_USER:$APP_USER" "$ENV_PATH"
 chmod 640 "$ENV_PATH"
-install -d -m 750 -o "$APP_USER" -g "$APP_USER" "$APP_DIR/data" "$APP_DIR/runtime" "$APP_DIR/logs"
-log_ok "Environment file and runtime directories are ready. / 环境文件与运行目录已就绪。"
+log_ok "Environment file is ready. / 环境文件已就绪。"
 
-log_step_start "Initialize runtime data / 初始化运行时数据"
+log_step_start "Initialize application state / 初始化应用状态"
 initialize_app_state
-log_ok "Runtime data initialized. / 运行时数据初始化完成。"
+log_ok "Application state initialized. / 应用状态初始化完成。"
 
 log_step_start "Enable systemd service / 启用 systemd 服务"
 cp "$APP_DIR/systemd/$SERVICE_NAME.service" "/etc/systemd/system/$SERVICE_NAME.service"
@@ -511,6 +627,7 @@ systemctl daemon-reload
 systemctl enable "$SERVICE_NAME"
 systemctl restart "$SERVICE_NAME"
 wait_for_http "http://${BACKEND_HOST}:${BACKEND_PORT}/login" "backend service"
+cleanup_unused_runtime_artifacts
 log_ok "systemd service is healthy. / systemd 服务运行正常。"
 
 log_step_start "Configure nginx reverse proxy / 配置 nginx 反向代理"
@@ -537,7 +654,6 @@ log_ok "All critical services are ready. / 关键服务已就绪。"
 cat <<EOF
 
 Deployment completed. / 部署完成。
-
 WebUI URLs / WebUI 访问地址:
 - ${PUBLIC_HTTP_URL}
 EOF
@@ -554,13 +670,11 @@ Admin login / 管理员登录:
 - username / 用户名: ${ADMIN_USERNAME}
 - password / 密码: ${ADMIN_PASSWORD}
 
-What is already prepared / 已完成的初始化:
-- the app now runs behind nginx / 应用现在运行在 nginx 反向代理后面
-- uvicorn only listens on ${BACKEND_HOST}:${BACKEND_PORT} / uvicorn 仅监听 ${BACKEND_HOST}:${BACKEND_PORT}
-- FastAPI docs are disabled by default / FastAPI 文档默认关闭
-- initial settings.json is created / 初始 settings.json 已创建
-- the default export host is ${PUBLIC_HOST} / 默认导出主机是 ${PUBLIC_HOST}
-- the default allowed C port pool is ${DEFAULT_ALLOWED_C_PORTS} / 默认允许的 C 端口池是 ${DEFAULT_ALLOWED_C_PORTS}
+Runtime summary / 运行时摘要:
+- Python runtime / Python 运行时: ${PYTHON_RUNTIME}
+- App launcher / 应用启动脚本: ${APP_DIR}/runtime/start-webui.sh
+- Default export host / 默认导出主机: ${PUBLIC_HOST}
+- Default C port pool / 默认 C 端口池: ${DEFAULT_ALLOWED_C_PORTS}
 
 Next steps in the UI / 接下来在 UI 里要做的事:
 1. Log in to the WebUI. / 登录 WebUI。
@@ -569,7 +683,7 @@ Next steps in the UI / 接下来在 UI 里要做的事:
 4. Refresh the subscription and start the default route. / 刷新订阅并启动默认路由。
 
 Firewall reminder / 防火墙提醒:
-- Please open the WebUI port in your cloud firewall or security group now. / 请立即在云防火墙或安全组中放行 WebUI 端口。
+- Please open the WebUI port in your cloud firewall or security group now. / 请立刻在云防火墙或安全组中放行 WebUI 端口。
 - WebUI / 面板入口: ${PUBLIC_HTTP_PORT}/tcp
 EOF
 

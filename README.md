@@ -91,14 +91,16 @@ echo "[1/2] Downloading bootstrap script from GitHub..." && curl -fL --retry 3 -
 
 部署脚本会自动完成：
 
-- 安装 Python、venv、`nginx` 等依赖
-- 在下载源码前测速多个 GitHub 源码通道并自动选择更快可用的一个
-- 从 GitHub 拉取源码到 `/opt/clash-socks-server-ui`
+- 安装 Ubuntu 系统依赖和 `nginx`
+- 优先通过 `raw.githubusercontent.com` 同步一份精简运行源码
+- 如果 raw 同步失败，再回退到 `git clone`、GitHub API 归档或 `codeload`
+- 把运行文件放到 `/opt/clash-socks-server-ui`
 - 创建运行用户 `clashui`
 - 生成随机管理员密码和 session secret
 - 初始化 `settings.json`
 - 尝试预下载 `mihomo`
-- 在安装 Python 依赖前测速多个 pip 源并自动选择更快的一个
+- 优先使用 Ubuntu 软件源里的 Python 包
+- 只有系统 Python 包不可用时，才回退到 `pip`，并自动选择更快的镜像
 - 配置 `systemd`
 - 配置 `nginx` 反向代理
 - 让应用只监听 `127.0.0.1:18081`
@@ -191,11 +193,14 @@ echo "[1/2] Downloading bootstrap script from GitHub..." && curl -fL --retry 3 -
 - `CSG_PIP_RETRIES`
   pip 下载重试次数，默认 `5`。
 
-- `CSG_REPO_CANDIDATE_CHANNELS`
-  可选，逗号分隔的 GitHub 源码通道候选列表。默认会探测 `archive-branch`、`archive-tag`、`api-tarball`、`codeload` 和 `git-clone`。
+- `CSG_MIHOMO_PREINSTALL_TIMEOUT`
+  可选，`mihomo` 预装的最长等待时间，默认 `45` 秒。设为 `0` 可在安装阶段直接跳过预装。
+
+- `CSG_REPO_FETCH_STRATEGIES`
+  可选，逗号分隔的 GitHub 源码获取策略。默认按 `raw-files,git-clone,api-tarball,codeload` 的顺序依次尝试。
 
 - `CSG_REPO_FETCH_TIMEOUT`
-  GitHub 源码通道探测超时时间，默认 `15` 秒。
+  GitHub 源码获取相关请求的超时时间，默认 `15` 秒。
 
 - `CSG_REPO_DOWNLOAD_TIMEOUT`
   GitHub 源码实际下载超时时间，默认 `300` 秒。
@@ -204,7 +209,7 @@ echo "[1/2] Downloading bootstrap script from GitHub..." && curl -fL --retry 3 -
   Bootstrap 下载的分支或 tag，默认 `main`。
 
 - `REPO_ARCHIVE_URL`
-  可选，手动指定源码归档地址。设置后 bootstrap 会跳过 GitHub 通道测速，直接使用这个地址下载源码。
+  可选，手动指定源码归档地址。设置后 bootstrap 会跳过默认获取策略，直接使用这个地址下载源码。
 
 ## 重要注意事项
 
@@ -223,10 +228,10 @@ echo "[1/2] Downloading bootstrap script from GitHub..." && curl -fL --retry 3 -
 ## 项目结构
 
 - `bootstrap_ubuntu.sh`
-  一条命令部署入口，从 GitHub 下载源码并调用安装器。
+  一条命令部署入口，优先通过 GitHub raw 精简同步运行文件，再调用安装器。
 
 - `install_ubuntu.sh`
-  Ubuntu 上的实际安装器，负责依赖安装、环境初始化、`systemd` 和 `nginx` 配置。
+  Ubuntu 上的实际安装器，优先使用 Ubuntu 软件源里的 Python 包，必要时才回退到 pip。
 
 - `app/main.py`
   FastAPI 入口和 API 路由。
